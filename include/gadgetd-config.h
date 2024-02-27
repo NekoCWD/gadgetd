@@ -36,9 +36,9 @@
 struct gd_config {
 	char *configfs_mnt;
 	char *gd_config_file_path;
-	usbg_gadget_attrs *g_attrs;
-	usbg_config_strs *cfg_strs;
-	usbg_gadget_strs *g_strs;
+	struct usbg_gadget_attrs *g_attrs;
+	struct usbg_config_strs *cfg_strs;
+	struct usbg_gadget_strs *g_strs;
 };
 
 extern struct gd_config config;

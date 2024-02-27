@@ -40,13 +40,13 @@ struct _GadgetConfigClass
 	GadgetdGadgetConfigSkeletonClass parent_class;
 };
 
-enum
+enum prop_config_iface
 {
 	PROP_0,
 	PROP_CFG_LABEL,
 	PROP_CFG_ID,
 	PROP_CFG_OBJ
-} prop_config_iface;
+};
 
 static void gadget_config_iface_init(GadgetdGadgetConfigIface *iface);
 
