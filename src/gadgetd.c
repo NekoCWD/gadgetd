@@ -34,6 +34,7 @@
 
 #include <gio/gio.h>
 #include <glib/gprintf.h>
+#include <usbg/usbg.h>
 
 /* default path for config file */
 #define CONFIG_FILE	 "/etc/gadgetd/gadgetd.config"
@@ -42,6 +43,7 @@
 struct gd_config config;
 struct gd_context ctx;
 GList *gd_udcs;
+GList *gd_gadgets;
 
 static void
 usage() {
@@ -142,6 +144,7 @@ inline static int
 gd_ctx_init(void)
 {
 	usbg_udc *u;
+	usbg_gadget *g;
 	int usbg_ret = GD_SUCCESS;
 
 	usbg_ret = usbg_init(config.configfs_mnt, &ctx.state);
@@ -152,6 +155,10 @@ gd_ctx_init(void)
 
 	usbg_for_each_udc(u, ctx.state) {
 		gd_udcs = g_list_append(gd_udcs, u);
+	}
+	usbg_for_each_gadget(g, ctx.state) {
+		INFO("Adding gadget %s", usbg_get_gadget_name(g));
+		gd_gadgets = g_list_append(gd_gadgets, g);
 	}
 	return usbg_ret;
 }

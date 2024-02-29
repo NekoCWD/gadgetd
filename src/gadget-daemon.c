@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "gadgetd-core.h"
 #include <stdio.h>
 
 #include <gio/gio.h>
@@ -28,8 +29,11 @@
 #include <gadget-daemon.h>
 #include <gadget-manager.h>
 #include <gadgetd-udc-object.h>
+#include <gadgetd-gadget-object.h>
 
+#include <stdlib.h>
 #include <string.h>
+#include <usbg/usbg.h>
 #ifdef G_OS_UNIX
 #  include <gio/gunixfdlist.h>
 #endif
@@ -189,6 +193,8 @@ gadget_daemon_constructed(GObject *object)
 	GadgetdGadgetManager *gadget_manager;
 	GDBusConnection *connection;
 	GadgetdUdcObject *udc_object;
+	GadgetdGadgetObject *gadget_object;
+	struct gd_gadget *gadget_struct;
 	GList *l;
 
 	daemon->object_manager = g_dbus_object_manager_server_new(gadgetd_path);
@@ -210,6 +216,16 @@ gadget_daemon_constructed(GObject *object)
 		udc_object = gadgetd_udc_object_new((usbg_udc *)(l->data), daemon);
 		g_dbus_object_manager_server_export(gadget_daemon_get_object_manager(daemon),
 					    G_DBUS_OBJECT_SKELETON(udc_object));
+	}
+	/* create dbus gadget objects */
+	for (l = gd_gadgets; l != NULL; l = l->next) {
+		gadget_struct = malloc(sizeof(struct gd_gadget));
+		gadget_struct->g = (usbg_gadget *)(l->data);
+		gadget_object = gadgetd_gadget_object_new(daemon, g_strdup_printf("%s/%s", gadgetd_path, usbg_get_gadget_name(gadget_struct->g)), gadget_struct);
+		g_dbus_object_manager_server_export(gadget_daemon_get_object_manager(daemon),
+					    G_DBUS_OBJECT_SKELETON(gadget_object));
+		INFO("Adding gadget st 2 %s to %s", usbg_get_gadget_name(gadget_struct->g), g_strdup_printf("%s/%s", gadgetd_path, usbg_get_gadget_name(gadget_struct->g)));
+		
 	}
 
 	if (G_OBJECT_CLASS(gadget_daemon_parent_class)->constructed != NULL)
