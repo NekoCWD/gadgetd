@@ -192,6 +192,90 @@ gd_alloc_get_next_str(FILE *fp, gchar **str)
 
 	return count;
 }
+/* If the functions are built into the kernel */
+static int
+gd_append_usbfunc_modules_builtin(char *path, gchar ***funclist,
+	int *cap, int *count)
+{
+	/* TODO: Is it a best way to get builtin modules?*/
+	gchar prefix[] = "kernel/drivers/usb/gadget/function/usb_f_"; 
+	gchar suffix[] = ".ko";
+	gchar buff;
+	gchar *tmpstr;
+	gchar *finstr;
+	int tmp;
+	int ret = GD_ERROR_OTHER_ERROR;
+	FILE *fp;
+	int newcnt;
+	int newcap;
+	int i;
+	gchar **res;
+	newcnt = *count;
+	newcap = *cap;
+
+	res = *funclist;
+	fp = fopen(path, "r");
+	if (fp == NULL) {
+		ERROR("ACHTUNG!");
+		ret = gd_translate_error(errno);
+		return ret;
+	}
+
+	qsort(res, *count, sizeof(*res), gd_str_cmp);
+	INFO("Entering While. reading from %s", path);
+	while (1) {
+		tmp = gd_alloc_get_next_str(fp, &tmpstr);
+		if (tmp == 0)
+			break;
+		if (tmp < 0) {
+			ret = tmp;
+			goto error;
+		}
+		if (tmp < sizeof(prefix)-1 )
+			continue;
+		buff = tmpstr[sizeof(prefix)-1];
+		tmpstr[sizeof(prefix)-1] = '\0';
+		if(strcmp(tmpstr, prefix) != 0)
+			continue;
+		tmpstr = &tmpstr[sizeof(prefix)-1];
+		tmpstr[0] = buff;
+		tmpstr[strlen(tmpstr)-strlen(suffix)] = '\0'; // skip ".ko"
+		finstr = malloc(strlen(tmpstr)+1);
+		memcpy(finstr, tmpstr, strlen(tmpstr)+1);
+		tmp = gd_str_list_append(&res, finstr,
+		newcap, newcnt++);
+		if (tmp < 0) {
+			ret = tmp;
+			goto error;
+		}
+		newcap = tmp;
+
+		if (feof(fp))
+			break;
+	}
+
+	tmp = gd_str_list_append(&res, NULL, newcap, newcnt);
+	if (tmp < 0) {
+		ret = tmp;
+		goto error;
+	}
+	*cap = tmp;
+	*count = newcnt;
+	*funclist = res;
+	fclose(fp);
+	return GD_SUCCESS;
+
+error:
+	if (fp != NULL)
+		fclose(fp);
+	*cap = newcap;
+	for (i = *count; i < newcnt; i++)
+		free(res[i]);
+	res[*count] = NULL;
+	*funclist = res;
+
+	return ret;
+}
 
 static int
 gd_append_usbfunc_modules(char *path, gchar ***funclist,
@@ -400,6 +484,19 @@ gd_list_functions(gchar ***dest)
 		goto error;
 	else if (tmp == GD_ERROR_FILE_OPEN_FAILED)
 		INFO("modules.alias file not found");
+	tmp = snprintf(path, PATH_MAX,
+		"/lib/modules/%s/modules.builtin", name.release);
+	if (tmp >= PATH_MAX) {
+		*dest = NULL;
+		ERROR("Path too long");
+		return GD_ERROR_PATH_TOO_LONG;
+	}
+	tmp = gd_append_usbfunc_modules_builtin(path, &list, &cap, &count);
+	if (tmp < 0 && tmp != GD_ERROR_FILE_OPEN_FAILED)
+		goto error;
+	else if (tmp == GD_ERROR_FILE_OPEN_FAILED)
+		INFO("modules.builtin file not found");
+	
 
 	tmp = gd_append_func_list("/sys/class/usb_gadget/func_list",
 		&list, &cap, &count);
